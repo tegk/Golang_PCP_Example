@@ -5,11 +5,15 @@ import (
 	"sync"
 )
 
+//creating buffered channels with the channel "done"
+//used to block terminating main()
 var jobs = make(chan int, 100)
 var results = make(chan int, 100)
-var wg sync.WaitGroup
 var done = make(chan bool, 1)
 
+var wg sync.WaitGroup
+
+//sending produced to channel "jobs" and after closes the channel.
 func producer(){
 	for j := 1; j <= 20; j++ {
 		fmt.Println("Produced job", j)
