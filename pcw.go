@@ -3,46 +3,46 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
+	"math/rand"
 )
 
 //creating buffered channels with the channel "done"
 //used to block terminating main()
-var jobs = make(chan int, 100)
-var results = make(chan int, 100)
-var done = make(chan bool, 1)
 
 var wg sync.WaitGroup
 
+type Job struct {
+	Work   string
+}
+
 //sending produced to channel "jobs" and after closes the channel.
-func producer(){
-	for j := 1; j <= 20; j++ {
-		fmt.Println("Produced job", j)
-		jobs <- j
+func producer(jobs chan<- *Job, ){
+	for c := 'a'; c <= 'z'; c++ {
+		jobs <- &Job{Work: fmt.Sprintf("%c", c)}
 	}
 	close(jobs)
 }
 
-func writer(){
+func writer(results <-chan *Job, done chan<- bool){
 	for {
 		j, more :=  <-results
 		if more {
-			fmt.Println("Writer received job", j)
+			fmt.Println(j.Work)
 		} else {
-			fmt.Println("Writer received all jobs")
 			done <- true
 			return
 		}
 	}
 }
 
-func worker(id int, jobs <-chan int, results chan<- int) {
+func worker(jobs <-chan *Job, results chan<- *Job) {
 	for {
 		j, more := <-jobs
 		if more {
-			fmt.Println("Worker", id, "received job", j)
+			time.Sleep(time.Duration(rand.Float32() * float32(time.Second)))
 			results <- j
 		} else {
-			fmt.Println("Worker", id, "received all jobs")
 			wg.Done()
 			return
 		}
@@ -50,14 +50,17 @@ func worker(id int, jobs <-chan int, results chan<- int) {
 }
 
 func main() {
-	wg.Add(5)
+	var jobs = make(chan *Job)
+	var results = make(chan *Job, 100)
+	var done = make(chan bool, 1)
 
-	for w := 1; w <= 5; w++ {
-		go worker(w, jobs, results)
+	for w := 1; w <= 4; w++ {
+		wg.Add(1)
+		go worker(jobs, results)
 	}
 
-	go producer()
-	go writer()
+	go producer(jobs)
+	go writer(results, done)
 	wg.Wait()
 	close(results)
 	<- done
